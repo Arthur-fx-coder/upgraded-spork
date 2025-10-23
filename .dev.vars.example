@@ -1,0 +1,5 @@
+# Example development environment variables
+# Copy this file to .dev.vars and update with your values
+
+# No API keys required for Yahoo Finance free endpoints
+# KV is automatically available in dev mode

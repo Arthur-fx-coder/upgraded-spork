@@ -1,0 +1,7 @@
+name = "workers-quotes-api"
+main = "src/index.ts"
+compatibility_date = "2023-12-01"
+
+[[kv_namespaces]]
+binding = "QUOTES_KV"
+id = "placeholder_kv_id"
