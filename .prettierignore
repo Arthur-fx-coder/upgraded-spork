@@ -1,0 +1,7 @@
+node_modules
+dist
+build
+.wrangler
+.output
+coverage
+pnpm-lock.yaml
