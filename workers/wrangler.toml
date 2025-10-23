@@ -1,0 +1,18 @@
+name = "workers"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Uncomment to use KV namespace
+# kv_namespaces = [
+#   { binding = "MY_KV", id = "YOUR_KV_ID" }
+# ]
+
+# Uncomment to use Durable Objects
+# [durable_objects]
+# bindings = [
+#   { name = "MY_DURABLE_OBJECT", class_name = "MyDurableObject" }
+# ]
+
+# Environment variables
+# [vars]
+# MY_VAR = "value"
