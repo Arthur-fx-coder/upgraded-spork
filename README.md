@@ -5,6 +5,11 @@ A Cloudflare Worker that provides real-time quote data from Yahoo Finance with i
 ## Features
 
 - **Yahoo Finance Integration**: Fetches quotes for Gold/Silver spot prices and futures
+- **SHFE Integration**: Fetches quotes from Shanghai Futures Exchange (SHFE) with:
+  - Sina Finance API (JSONP) with fallback to EastMoney (JSON/HTML)
+  - Automatic retry with exponential backoff
+  - UTC timestamp normalization with Shanghai time conversion
+  - Expected delay indicators for SHFE data
 - **Dual-layer Caching**: 
   - Cache API for 60-second per-symbol caching
   - KV storage for last-good values as fallback
@@ -19,6 +24,8 @@ A Cloudflare Worker that provides real-time quote data from Yahoo Finance with i
 - `XAGUSD=X` - Silver/USD spot price
 - `GC=F` - Gold Futures
 - `SI=F` - Silver Futures
+- `au0` - SHFE Gold (Spot)
+- `ag0` - SHFE Silver (Spot)
 
 ## API Endpoints
 
@@ -60,10 +67,10 @@ curl "https://your-worker.workers.dev/api/quotes?symbols=XAUUSD=X,XAGUSD=X"
 - `price`: Current market price
 - `change`: Price change
 - `changePercent`: Percentage change
-- `timestamp`: Quote timestamp (milliseconds)
-- `source`: Data source (always "yahoo")
-- `isDelayed`: True if using cached fallback data
-- `isStale`: True if data is older than 5 minutes
+- `timestamp`: Quote timestamp in UTC (milliseconds)
+- `source`: Data source ("yahoo", "sina", or "eastmoney")
+- `isDelayed`: True if using cached fallback data or SHFE data (expected 15 min delay)
+- `isStale`: True if data is older than threshold (5 min for Yahoo, 20 min for SHFE)
 
 ### GET /api/health
 
@@ -81,6 +88,7 @@ curl "https://your-worker.workers.dev/api/health"
   "timestamp": 1700000000000,
   "checks": {
     "yahoo": true,
+    "shfe": true,
     "cache": true,
     "kv": true
   }
@@ -181,7 +189,9 @@ All logs are structured JSON with the following fields:
 .
 ├── src/
 │   ├── adapters/
-│   │   └── yahoo-finance.ts      # Yahoo Finance API adapter
+│   │   ├── yahoo-finance.ts      # Yahoo Finance API adapter
+│   │   ├── shfe-adapter.ts       # SHFE adapter (Sina/EastMoney)
+│   │   └── shfe-adapter.test.ts  # SHFE adapter tests
 │   ├── cache/
 │   │   ├── cache-manager.ts      # Cache and KV management
 │   │   └── cache-manager.test.ts # Cache tests

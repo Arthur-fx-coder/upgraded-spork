@@ -1,5 +1,5 @@
-import { Quote, YahooFinanceQuote } from '../types';
-import { SUPPORTED_SYMBOLS, STALE_DATA_THRESHOLD_MS } from '../config';
+import { Quote, YahooFinanceQuote, SHFEQuote } from '../types';
+import { SUPPORTED_SYMBOLS, STALE_DATA_THRESHOLD_MS, SHFE_EXPECTED_DELAY_MS } from '../config';
 
 export function formatQuote(
   yahooQuote: YahooFinanceQuote,
@@ -34,4 +34,37 @@ export function formatQuotes(
   isDelayed: boolean = false
 ): Quote[] {
   return yahooQuotes.map(q => formatQuote(q, isDelayed));
+}
+
+export function formatSHFEQuote(
+  shfeQuote: SHFEQuote,
+  source: 'sina' | 'eastmoney'
+): Quote {
+  const symbolConfig = SUPPORTED_SYMBOLS.find(s => s.symbol === shfeQuote.symbol);
+  
+  const price = shfeQuote.price ?? 0;
+  const change = shfeQuote.change ?? 0;
+  const changePercent = shfeQuote.changePercent ?? 0;
+  const timestamp = shfeQuote.timestamp ?? Date.now();
+
+  const isStale = Date.now() - timestamp > (STALE_DATA_THRESHOLD_MS + SHFE_EXPECTED_DELAY_MS);
+
+  return {
+    symbol: shfeQuote.symbol,
+    name: symbolConfig?.name ?? shfeQuote.symbol,
+    price,
+    change,
+    changePercent,
+    timestamp,
+    source,
+    isDelayed: true,
+    isStale,
+  };
+}
+
+export function formatSHFEQuotes(
+  shfeQuotes: SHFEQuote[],
+  source: 'sina' | 'eastmoney'
+): Quote[] {
+  return shfeQuotes.map(q => formatSHFEQuote(q, source));
 }

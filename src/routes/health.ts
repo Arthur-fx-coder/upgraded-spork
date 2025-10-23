@@ -1,5 +1,6 @@
 import { Env, HealthStatus } from '../types';
 import { YahooFinanceAdapter } from '../adapters/yahoo-finance';
+import { SHFEAdapter } from '../adapters/shfe-adapter';
 import { CacheManager } from '../cache/cache-manager';
 import { logger } from '../utils/logger';
 import { createCorsResponse } from '../utils/cors';
@@ -8,15 +9,17 @@ export async function handleHealthRequest(_request: Request, env: Env): Promise<
   logger.info('Processing health check request');
 
   const yahooAdapter = new YahooFinanceAdapter();
+  const shfeAdapter = new SHFEAdapter();
   const cacheManager = new CacheManager(env.QUOTES_KV);
 
-  const [yahooHealthy, cacheHealth] = await Promise.all([
+  const [yahooHealthy, shfeHealthy, cacheHealth] = await Promise.all([
     yahooAdapter.healthCheck(),
+    shfeAdapter.healthCheck(),
     cacheManager.healthCheck(),
   ]);
 
-  const allHealthy = yahooHealthy && cacheHealth.cache && cacheHealth.kv;
-  const someHealthy = yahooHealthy || cacheHealth.cache || cacheHealth.kv;
+  const allHealthy = yahooHealthy && shfeHealthy && cacheHealth.cache && cacheHealth.kv;
+  const someHealthy = yahooHealthy || shfeHealthy || cacheHealth.cache || cacheHealth.kv;
 
   let status: HealthStatus['status'];
   let httpStatus: number;
@@ -37,6 +40,7 @@ export async function handleHealthRequest(_request: Request, env: Env): Promise<
     timestamp: Date.now(),
     checks: {
       yahoo: yahooHealthy,
+      shfe: shfeHealthy,
       cache: cacheHealth.cache,
       kv: cacheHealth.kv,
     },

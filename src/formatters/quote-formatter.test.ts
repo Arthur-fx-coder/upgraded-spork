@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatQuote, formatQuotes } from './quote-formatter';
+import { formatQuote, formatQuotes, formatSHFEQuote, formatSHFEQuotes } from './quote-formatter';
 import { YahooFinanceQuote } from '../types';
 
 describe('quote-formatter', () => {
@@ -151,6 +151,161 @@ describe('quote-formatter', () => {
 
     it('should handle empty array', () => {
       const results = formatQuotes([]);
+
+      expect(results).toHaveLength(0);
+    });
+  });
+
+  describe('formatSHFEQuote', () => {
+    it('should format a valid SHFE quote', () => {
+      const shfeQuote = {
+        symbol: 'au0',
+        price: 500.50,
+        change: 1.50,
+        changePercent: 0.30,
+        timestamp: Date.now(),
+      };
+
+      const result = formatSHFEQuote(shfeQuote, 'sina');
+
+      expect(result).toMatchObject({
+        symbol: 'au0',
+        name: 'SHFE Gold (Spot)',
+        price: 500.50,
+        change: 1.50,
+        changePercent: 0.30,
+        source: 'sina',
+        isDelayed: true,
+      });
+      expect(result.isStale).toBe(false);
+    });
+
+    it('should use eastmoney as source', () => {
+      const shfeQuote = {
+        symbol: 'ag0',
+        price: 25.50,
+        change: 0.50,
+        changePercent: 2.0,
+        timestamp: Date.now(),
+      };
+
+      const result = formatSHFEQuote(shfeQuote, 'eastmoney');
+
+      expect(result.source).toBe('eastmoney');
+      expect(result.isDelayed).toBe(true);
+    });
+
+    it('should handle missing price data with defaults', () => {
+      const shfeQuote = {
+        symbol: 'au0',
+      };
+
+      const result = formatSHFEQuote(shfeQuote, 'sina');
+
+      expect(result).toMatchObject({
+        symbol: 'au0',
+        name: 'SHFE Gold (Spot)',
+        price: 0,
+        change: 0,
+        changePercent: 0,
+        source: 'sina',
+        isDelayed: true,
+      });
+      expect(result.timestamp).toBeGreaterThan(0);
+    });
+
+    it('should mark quote as stale if older than threshold + expected delay', () => {
+      const oldTimestamp = Date.now() - (25 * 60 * 1000);
+      const shfeQuote = {
+        symbol: 'au0',
+        price: 500.50,
+        timestamp: oldTimestamp,
+      };
+
+      const result = formatSHFEQuote(shfeQuote, 'sina');
+
+      expect(result.isStale).toBe(true);
+    });
+
+    it('should not mark recent quote as stale', () => {
+      const recentTimestamp = Date.now() - (2 * 60 * 1000);
+      const shfeQuote = {
+        symbol: 'au0',
+        price: 500.50,
+        timestamp: recentTimestamp,
+      };
+
+      const result = formatSHFEQuote(shfeQuote, 'sina');
+
+      expect(result.isStale).toBe(false);
+    });
+
+    it('should handle unknown symbols gracefully', () => {
+      const shfeQuote = {
+        symbol: 'unknown',
+        price: 100,
+      };
+
+      const result = formatSHFEQuote(shfeQuote, 'sina');
+
+      expect(result.symbol).toBe('unknown');
+      expect(result.name).toBe('unknown');
+    });
+  });
+
+  describe('formatSHFEQuotes', () => {
+    it('should format multiple SHFE quotes', () => {
+      const shfeQuotes = [
+        {
+          symbol: 'au0',
+          price: 500.50,
+          change: 1.50,
+          changePercent: 0.30,
+          timestamp: Date.now(),
+        },
+        {
+          symbol: 'ag0',
+          price: 25.50,
+          change: 0.50,
+          changePercent: 2.0,
+          timestamp: Date.now(),
+        },
+      ];
+
+      const results = formatSHFEQuotes(shfeQuotes, 'sina');
+
+      expect(results).toHaveLength(2);
+      expect(results[0].symbol).toBe('au0');
+      expect(results[1].symbol).toBe('ag0');
+      expect(results[0].isDelayed).toBe(true);
+      expect(results[1].isDelayed).toBe(true);
+      expect(results[0].source).toBe('sina');
+      expect(results[1].source).toBe('sina');
+    });
+
+    it('should apply eastmoney source to all quotes', () => {
+      const shfeQuotes = [
+        {
+          symbol: 'au0',
+          price: 500.50,
+          timestamp: Date.now(),
+        },
+        {
+          symbol: 'ag0',
+          price: 25.50,
+          timestamp: Date.now(),
+        },
+      ];
+
+      const results = formatSHFEQuotes(shfeQuotes, 'eastmoney');
+
+      expect(results).toHaveLength(2);
+      expect(results[0].source).toBe('eastmoney');
+      expect(results[1].source).toBe('eastmoney');
+    });
+
+    it('should handle empty array', () => {
+      const results = formatSHFEQuotes([], 'sina');
 
       expect(results).toHaveLength(0);
     });

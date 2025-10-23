@@ -1,10 +1,17 @@
 import { Env, Quote } from '../types';
 import { YahooFinanceAdapter } from '../adapters/yahoo-finance';
+import { SHFEAdapter } from '../adapters/shfe-adapter';
 import { CacheManager } from '../cache/cache-manager';
-import { formatQuotes } from '../formatters/quote-formatter';
+import { formatQuotes, formatSHFEQuote } from '../formatters/quote-formatter';
 import { parseSymbolsFromUrl, ValidationError } from '../validators/request-validator';
 import { logger } from '../utils/logger';
 import { createCorsResponse } from '../utils/cors';
+
+const SHFE_SYMBOLS = ['au0', 'ag0'];
+
+function isSHFESymbol(symbol: string): boolean {
+  return SHFE_SYMBOLS.includes(symbol);
+}
 
 export async function handleQuotesRequest(request: Request, env: Env): Promise<Response> {
   try {
@@ -14,6 +21,7 @@ export async function handleQuotesRequest(request: Request, env: Env): Promise<R
     logger.info('Processing quotes request', { symbols });
 
     const yahooAdapter = new YahooFinanceAdapter();
+    const shfeAdapter = new SHFEAdapter();
     const cacheManager = new CacheManager(env.QUOTES_KV);
 
     const quotes: Quote[] = [];
@@ -26,41 +34,79 @@ export async function handleQuotesRequest(request: Request, env: Env): Promise<R
         continue;
       }
 
-      try {
-        const yahooQuotes = await yahooAdapter.fetchQuotes([symbol]);
-        
-        if (yahooQuotes.length > 0) {
-          const formattedQuotes = formatQuotes(yahooQuotes, false);
-          const quote = formattedQuotes[0];
+      if (isSHFESymbol(symbol)) {
+        try {
+          const shfeQuote = await shfeAdapter.fetchQuote(symbol);
           
-          quotes.push(quote);
-          
-          await Promise.all([
-            cacheManager.setCachedQuote(symbol, quote),
-            cacheManager.setLastGoodQuote(symbol, quote),
-          ]);
-        } else {
+          if (shfeQuote && shfeQuote.price !== undefined) {
+            const quote = formatSHFEQuote(shfeQuote, 'sina');
+            quotes.push(quote);
+            
+            await Promise.all([
+              cacheManager.setCachedQuote(symbol, quote),
+              cacheManager.setLastGoodQuote(symbol, quote),
+            ]);
+          } else {
+            const lastGood = await cacheManager.getLastGoodQuote(symbol);
+            if (lastGood) {
+              quotes.push({ ...lastGood, isDelayed: true });
+              logger.warn('Using last good value for SHFE symbol', { symbol });
+            } else {
+              logger.error('No data available for SHFE symbol', { symbol });
+            }
+          }
+        } catch (error) {
           const lastGood = await cacheManager.getLastGoodQuote(symbol);
           if (lastGood) {
             quotes.push({ ...lastGood, isDelayed: true });
-            logger.warn('Using last good value for symbol', { symbol });
+            logger.warn('Error fetching SHFE symbol, using last good value', {
+              symbol,
+              error: error instanceof Error ? error.message : String(error),
+            });
           } else {
-            logger.error('No data available for symbol', { symbol });
+            logger.error('Error fetching SHFE symbol and no fallback available', {
+              symbol,
+              error: error instanceof Error ? error.message : String(error),
+            });
           }
         }
-      } catch (error) {
-        const lastGood = await cacheManager.getLastGoodQuote(symbol);
-        if (lastGood) {
-          quotes.push({ ...lastGood, isDelayed: true });
-          logger.warn('Error fetching symbol, using last good value', {
-            symbol,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        } else {
-          logger.error('Error fetching symbol and no fallback available', {
-            symbol,
-            error: error instanceof Error ? error.message : String(error),
-          });
+      } else {
+        try {
+          const yahooQuotes = await yahooAdapter.fetchQuotes([symbol]);
+          
+          if (yahooQuotes.length > 0) {
+            const formattedQuotes = formatQuotes(yahooQuotes, false);
+            const quote = formattedQuotes[0];
+            
+            quotes.push(quote);
+            
+            await Promise.all([
+              cacheManager.setCachedQuote(symbol, quote),
+              cacheManager.setLastGoodQuote(symbol, quote),
+            ]);
+          } else {
+            const lastGood = await cacheManager.getLastGoodQuote(symbol);
+            if (lastGood) {
+              quotes.push({ ...lastGood, isDelayed: true });
+              logger.warn('Using last good value for symbol', { symbol });
+            } else {
+              logger.error('No data available for symbol', { symbol });
+            }
+          }
+        } catch (error) {
+          const lastGood = await cacheManager.getLastGoodQuote(symbol);
+          if (lastGood) {
+            quotes.push({ ...lastGood, isDelayed: true });
+            logger.warn('Error fetching symbol, using last good value', {
+              symbol,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } else {
+            logger.error('Error fetching symbol and no fallback available', {
+              symbol,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
         }
       }
     }

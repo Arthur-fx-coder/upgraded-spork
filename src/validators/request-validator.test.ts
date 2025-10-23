@@ -50,7 +50,7 @@ describe('request-validator', () => {
       const url = new URL('https://example.com/api/quotes');
       const result = parseSymbolsFromUrl(url);
 
-      expect(result).toEqual(['XAUUSD=X', 'XAGUSD=X', 'GC=F', 'SI=F']);
+      expect(result).toEqual(['XAUUSD=X', 'XAGUSD=X', 'GC=F', 'SI=F', 'au0', 'ag0']);
     });
 
     it('should trim whitespace from symbols', () => {

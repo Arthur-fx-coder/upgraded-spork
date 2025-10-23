@@ -28,11 +28,20 @@ export interface YahooFinanceQuote {
   regularMarketTime?: number;
 }
 
+export interface SHFEQuote {
+  symbol: string;
+  price?: number;
+  change?: number;
+  changePercent?: number;
+  timestamp?: number;
+}
+
 export interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';
   timestamp: number;
   checks: {
     yahoo: boolean;
+    shfe?: boolean;
     cache: boolean;
     kv: boolean;
   };
